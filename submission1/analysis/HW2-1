@@ -1,0 +1,160 @@
+#Question 1
+# How many hospitals filed more than one report in the same year?
+
+final.hcris.v1996=read_rds('data/output/HCRIS_Data_v1996.rds')
+final.hcris.v2010=read_rds('data/output/HCRIS_Data_v2010.rds')
+
+## create missing variables for columns introduced in v2010 of hcris forms
+final.hcris.v1996 = final.hcris.v1996 %>%
+  mutate(hvbp_payment=NA, hrrp_payment=NA)
+
+## combine v1996 and v2010 hcris forms, and sort by provider_number/year
+final.hcris=rbind(final.hcris.v1996,final.hcris.v2010) %>%
+  mutate(fy_end=mdy(fy_end),fy_start=mdy(fy_start),
+         date_processed=mdy(date_processed),date_created=mdy(date_created),
+         tot_discounts=abs(tot_discounts), hrrp_payment=abs(hrrp_payment)) %>%
+  mutate(fyear=year(fy_end)) %>%
+  arrange(provider_number,fyear) %>%
+  select(-year)
+
+## count of hospitals/provider_number by year
+final.hcris %>% group_by(fyear) %>% count()
+
+# Clean data --------------------------------------------------------------
+
+## create count of reports by hospital fiscal year
+final.hcris =
+  final.hcris %>% 
+  add_count(provider_number, fyear, name="total_reports")
+
+## create running total of reports
+final.hcris =
+  final.hcris %>% 
+  group_by(provider_number, fyear) %>%
+  mutate(report_number=row_number())
+
+## identify hospitals with only one report per fiscal year 
+## this will be the first set of hospitals in the final dataset
+unique.hcris1 =
+  final.hcris %>%
+  filter(total_reports==1) %>%
+  select(-report, -total_reports, -report_number, -npi, -status) %>%
+  mutate(source='unique reports')
+
+
+## identify hospitals with multiple reports per fiscal year
+duplicate.hcris = 
+  final.hcris %>%
+  filter(total_reports>1) %>%
+  mutate(time_diff=fy_end-fy_start)
+
+library(ggplot2)
+
+# Group by fiscal year and count the number of unique hospitals
+hospitals_over_time <- duplicate.hcris %>%
+  group_by(fyear) %>%
+  summarise(num_hospitals = n_distinct(provider_number))
+
+# Plot the number of hospitals with multiple reports over time
+ggplot(hospitals_over_time, aes(x = fyear, y = num_hospitals)) +
+  geom_line() +
+  labs(x = "Fiscal Year", y = "Number of Hospitals with Multiple Reports") +
+  ggtitle("Hospitals with Multiple Reports in the Same Year")
+
+#Question 2
+# Count the number of unique hospital IDs
+num_unique_hospitals <- final.hcris.data %>%
+  distinct(provider_number) %>%
+  nrow()
+
+# Print the result
+cat("The number of unique hospital IDs:", num_unique_hospitals, "\n")
+
+#Question 3
+library(ggplot2)
+# Plot violin plot
+ggplot(final.hcris.data, aes(x = as.factor(year), y = tot_charges)) +
+  geom_violin() +
+  labs(x = "Year", y = "Total Charges") +
+  ggtitle("Distribution of Total Charges by Year")
+
+#Question 4
+# Load necessary libraries
+library(tidyverse)
+
+# Load the HCRIS data
+final.hcris.data <- read_rds("data/output/HCRIS_Data.rds")
+
+# Calculate the estimated prices
+final.hcris.data <- final.hcris.data %>%
+  mutate(
+    discount_factor = 1 - tot_discounts / tot_charges,
+    price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
+    price_denom = tot_discharges - mcare_discharges,
+    price = price_num / price_denom
+  )
+
+# Filter out negative prices and extreme outliers
+final.hcris.data <- final.hcris.data %>%
+  filter(price >= 0) %>%
+  filter(between(price, quantile(price, 0.01), quantile(price, 0.99)))  # Remove extreme outliers
+
+# Create violin plot
+ggplot(final.hcris.data, aes(x = as.factor(year), y = price)) +
+  geom_violin(trim = FALSE) +
+  labs(x = "Year", y = "Estimated Price") +
+  ggtitle("Distribution of Estimated Prices by Year") +
+  theme_minimal()
+
+#Question 5
+# Filter the dataset to include only observations from the year 2012
+data_2012 <- final.hcris.data %>% filter(year == 2012)
+
+# Define penalty as whether the sum of the HRRP and HVBP amounts are negative
+data_2012 <- data_2012 %>% 
+  mutate(penalty = ifelse(hrrp_payment + hvbp_payment < 0, "Penalized", "Non-Penalized"))
+
+# Calculate the average price for penalized hospitals and non-penalized hospitals separately
+average_price <- data_2012 %>%
+  group_by(penalty) %>%
+  summarise(average_price = mean(price, na.rm = TRUE))
+
+# Print the results
+print(average_price)
+
+#Question 6
+# Calculate quartiles based on bed size
+quartiles <- quantile(final.hcris.data$beds, probs = c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE)
+
+# Create indicator variables for quartiles
+final.hcris.data <- final.hcris.data %>%
+  mutate(quartile_1 = ifelse(beds <= quartiles[2], 1, 0),
+         quartile_2 = ifelse(beds > quartiles[2] & beds <= quartiles[3], 1, 0),
+         quartile_3 = ifelse(beds > quartiles[3] & beds <= quartiles[4], 1, 0),
+         quartile_4 = ifelse(beds > quartiles[4], 1, 0))
+
+# Calculate the average price among treated/control groups for each quartile
+average_price_quartiles <- final.hcris.data %>%
+  group_by(quartile_1, quartile_2, quartile_3, quartile_4) %>%
+  summarise(average_price = mean(price, na.rm = TRUE))
+
+# Print the table of the average price among treated/control groups for each quartile
+print(average_price_quartiles)
+
+#Question 7
+library(Matching)
+lp.vars <- final.hcris.data %>% 
+  select(beds, mcaid_discharges, penalty, ip_charges, 
+         mcare_discharges, tot_mcare_payment, price) %>%
+  filter(complete.cases(.))
+lp.covs <- lp.vars %>% select(-c("penalty","price"))
+
+m.nn.var <- Matching::Match(Y=lp.vars$price,
+                            Tr=lp.vars$penalty,
+                            X=lp.covs,
+                            M=4,  #<<
+                            Weight=1,
+                            estimand="ATE")
+
+v.name=data.frame(new=c("Beds","Medicaid Discharges", "Inaptient Charges",
+                   "Medicare Discharges", "Medicare Payments"))
