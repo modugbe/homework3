@@ -1,11 +1,11 @@
 ---
-title: "Homework2 Submission2"
+title: "Homework2 Submission3"
 author: "Moyo Odugbemi"
 subtitle: "https://github.com/modugbe/homework2"
 format: 
    pdf: 
      df-print: default
-     output-file: "odugbemi-m-hwk2-2"
+     output-file: "odugbemi-m-hwk2-3"
      output-ext: "pdf"
      header-includes:
         - \usepackage{float}
@@ -16,7 +16,9 @@ format:
 #| include: false
 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, ggplot2, dplyr,
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, fixest,
+               scales, gganimate, gapminder, gifski, png, tufte, plotly, OECD,
+               ggrepel, survey, foreign, devtools, pdftools, kableExtra, modelsummary,
                kableExtra)
 ```
 
@@ -106,7 +108,9 @@ Estimate for nearest neighbor (variance)
 Quarto is doing something weird where I cannot get it to display the results of the ATE on the pdf. When ran in the terminal, the estimate is 240.45
 
 Estimate for nearest neighbor (mahalanobis)
-`r m.nn.md$est[1,1]` with standard error `r m.nn.md$se`
+```{r results="hide", echo=FALSE, message=FALSE}
+ate_summary <- summary(m.nn.md)
+```
 
 When ran in the terminal, the estimate is 240.45
 
