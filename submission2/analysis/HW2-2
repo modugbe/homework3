@@ -1,0 +1,201 @@
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, knitr)
+
+#Question 1
+# How many hospitals filed more than one report in the same year?
+
+final.hcris.v1996=read_rds('data/output/HCRIS_Data_v1996.rds')
+final.hcris.v2010=read_rds('data/output/HCRIS_Data_v2010.rds')
+
+## create missing variables for columns introduced in v2010 of hcris forms
+final.hcris.v1996 = final.hcris.v1996 %>%
+  mutate(hvbp_payment=NA, hrrp_payment=NA)
+
+## combine v1996 and v2010 hcris forms, and sort by provider_number/year
+final.hcris=rbind(final.hcris.v1996,final.hcris.v2010) %>%
+  mutate(fy_end=mdy(fy_end),fy_start=mdy(fy_start),
+         date_processed=mdy(date_processed),date_created=mdy(date_created),
+         tot_discounts=abs(tot_discounts), hrrp_payment=abs(hrrp_payment)) %>%
+  mutate(fyear=year(fy_end)) %>%
+  arrange(provider_number,fyear) %>%
+  select(-year)
+
+## create count of reports by hospital fiscal year
+final.hcris =
+  final.hcris %>% 
+  add_count(provider_number, fyear, name="total_reports")
+
+## create running total of reports
+final.hcris =
+  final.hcris %>% 
+  group_by(provider_number, fyear) %>%
+  mutate(report_number=row_number())
+
+## identify hospitals with multiple reports per fiscal year
+duplicate.hcris = final.hcris %>%
+  filter(total_reports>1) %>%
+  mutate(time_diff=fy_end-fy_start)
+
+# Group by fiscal year and count the number of unique hospitals
+hospitals_over_time <- duplicate.hcris %>%
+  group_by(fyear) %>%
+  summarise(num_hospitals = n_distinct(provider_number))
+
+# Plot the number of hospitals with multiple reports over time
+plot_hospitals_over_time <- ggplot(hospitals_over_time, aes(x = fyear, y = num_hospitals)) +
+  geom_line() +
+  labs(x = "Fiscal Year", y = "Number of Hospitals with Multiple Reports") +
+  ggtitle("Hospitals with Multiple Reports in the Same Year")
+
+plot_hospitals_over_time
+
+#Question 2
+# Count the number of unique hospital IDs
+final.hcris.data <- read_rds('data/output/HCRIS_Data.rds')
+
+num_unique_hospitals <- final.hcris.data %>%
+  group_by(provider_number) %>%
+  summarise(has_multiple_years = n_distinct(year)) %>%
+  filter(has_multiple_years > 1) %>%
+  nrow()
+
+num_unique_hospitals
+
+#Question 3
+# Plot violin plot
+question3_plot <- final.hcris.data %>%
+  ggplot(aes(x = as.factor(year), y = tot_charges)) +
+  geom_violin(alpha = .9, draw_quantiles = c(0.5)) +
+  labs(x = "Year", y = "Total Charges") +
+  ggtitle("Distribution of Total Charges by Year")
+
+question3_plot
+
+#Question 4
+# Calculate the estimated prices
+final.hcris.data <- final.hcris.data %>%
+  mutate(
+    discount_factor = 1 - tot_discounts / tot_charges,
+    price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
+    price_denom = tot_discharges - mcare_discharges,
+    price = price_num / price_denom
+  )
+
+# Filter out negative prices and extreme outliers and add penalty data
+final.hcris.data <- final.hcris.data %>% ungroup() %>%
+  filter(price_denom>100, !is.na(price_denom), 
+         price_num>0, !is.na(price_num),
+         price<100000, 
+         beds>30) %>%  
+  mutate( hvbp_payment = ifelse(is.na(hvbp_payment),0,hvbp_payment),
+          hrrp_payment = ifelse(is.na(hrrp_payment),0,abs(hrrp_payment)),
+          penalty = (hvbp_payment-hrrp_payment<0))
+
+# Create violin plot
+question4_plot <- ggplot(final.hcris.data, aes(x = as.factor(year), y = price)) +
+  geom_violin(trim = FALSE) +
+  labs(x = "Year", y = "Estimated Price") +
+  ggtitle("Distribution of Estimated Prices by Year") +
+  theme_minimal()
+
+question4_plot
+
+
+#Question 5
+# Filter the dataset to include only observations from the year 2012
+data_2012 <- final.hcris.data %>% filter(year == 2012)
+
+# Calculate the average price for penalized hospitals and non-penalized hospitals separately
+mean.pen <- round(mean(data_2012$price[which(data_2012$penalty==1)]),2)
+mean.nopen <- round(mean(data_2012$price[which(data_2012$penalty==0)]),2)
+
+# Create a table
+average_price <- data.frame(
+  Penalty = c("Penalized", "Non-Penalized"),
+  Mean_Price = c(mean.pen, mean.nopen)
+)
+
+average_price
+
+
+#Question 6
+# Calculate quartiles based on bed size
+data_2012 <- data_2012 %>%
+  mutate(bed_size_quartile = ntile(beds, 4))
+
+# Create indicator variables for each quartile
+data_2012 <- data_2012 %>%
+  mutate(quartile_1 = ifelse(bed_size_quartile == 1, 1, 0),
+         quartile_2 = ifelse(bed_size_quartile == 2, 1, 0),
+         quartile_3 = ifelse(bed_size_quartile == 3, 1, 0),
+         quartile_4 = ifelse(bed_size_quartile == 4, 1, 0))
+
+# Group the data by quartile and treatment/control groups, and calculate the average price
+average_price_by_quartile <- data_2012 %>%
+  group_by(quartile_1, quartile_2, quartile_3, quartile_4, penalty) %>%
+  summarise(average_price = mean(price, na.rm = TRUE))
+
+average_price_by_quartile
+
+
+#Question 7
+#nearest neighbor matching
+lp.vars <- data_2012 %>% 
+  select(beds, mcaid_discharges, penalty, ip_charges, 
+         mcare_discharges, tot_mcare_payment, price) %>%
+  filter(complete.cases(.))
+lp.covs <- lp.vars %>% select(beds)
+
+m.nn.var <- Matching::Match(Y=lp.vars$price,
+                            Tr=lp.vars$penalty,
+                            X=lp.covs,
+                            M=1,  #<<
+                            Weight=1,
+                            estimand="ATE")
+
+v.name=data.frame(new=c("Beds","Medicaid Discharges", "Inaptient Charges",
+                   "Medicare Discharges", "Medicare Payments"))
+
+nearest_neighbor <- summary(m.nn.var)
+
+#mahalanobis
+m.nn.md <- Matching::Match(Y=lp.vars$price,
+                           Tr=lp.vars$penalty,
+                           X=lp.covs,
+                           M=1,
+                           Weight=2,
+                           estimand="ATE")                           
+
+mahalanobis <- summary(m.nn.md)
+
+#IPW
+# lp.vars <- lp.vars %>%
+#   mutate(ipw = case_when(
+#     penalty==1 ~ 1/ps,
+#     penalty==0 ~ 1/(1-ps),
+#     TRUE ~ NA_real_
+#   ))
+# mean.t1 <- lp.vars %>% filter(penalty==1) %>%
+#   select(price, ipw) %>% summarize(mean_p=weighted.mean(price,w=ipw))
+# mean.t0 <- lp.vars %>% filter(penalty==0) %>%
+#   select(price, ipw) %>% summarize(mean_p=weighted.mean(price,w=ipw))
+# mean.t1$mean_p - mean.t0$mean_p
+
+logit.model <- glm(penalty ~ beds + mcaid_discharges + ip_charges + mcare_discharges +
+            tot_mcare_payment, family=binomial, data=lp.vars)
+ps <- fitted(logit.model)
+m.nn.ps <- Matching::Match(Y=lp.vars$price,
+                           Tr=lp.vars$penalty,
+                           X=ps,
+                           M=1,
+                           estimand="ATE")
+
+IPW <- summary(m.nn.ps)
+
+#linear regression
+reg.dat <- lp.vars %>% ungroup() %>% filter(complete.cases(.)) 
+reg <- lm(price ~ beds,
+          data=reg.dat)
+linear_reg <- summary(reg)
+
+save.image("submission2/results/Hw2_workspace.Rdata")

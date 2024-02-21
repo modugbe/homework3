@@ -86,12 +86,16 @@ ggplot(hospitals_over_time, aes(x = fyear, y = num_hospitals)) +
 
 \newpage
 #Question 2
-```{r results="hide", echo=FALSE, message=FALSE}
+```{r results="asis", echo=FALSE, message=FALSE}
+library(readr)
+library(dplyr)
+library(lubridate)
 num_unique_hospitals <- final.hcris.data %>%
   distinct(provider_number) %>%
   nrow()
 ```
-The number of unique hospital IDs: 21886.
+cat ('The number of unique hospital IDs:', nrow())
+
 
 \newpage
 #Question 3
