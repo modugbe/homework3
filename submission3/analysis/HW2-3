@@ -123,6 +123,7 @@ average_price
 #Question 6
 # Calculate quartiles based on bed size
 data_2012 <- data_2012 %>%
+  filter(!is.na(beds)) %>%
   mutate(bed_size_quartile = ntile(beds, 4))
 
 # Create indicator variables for each quartile
@@ -134,7 +135,7 @@ data_2012 <- data_2012 %>%
 
 # Group the data by quartile and treatment/control groups, and calculate the average price
 average_price_by_quartile <- data_2012 %>%
-  group_by(quartile_1, quartile_2, quartile_3, quartile_4, penalty) %>%
+  group_by(bed_size_quartile, penalty) %>%
   summarise(average_price = mean(price, na.rm = TRUE))
 
 average_price_by_quartile
@@ -143,9 +144,8 @@ average_price_by_quartile
 #Question 7
 #nearest neighbor matching
 lp.vars <- data_2012 %>% 
-  select(beds, penalty, price, quartile_1, quartile_2, quartile_3, quartile_4) %>%
-  filter(complete.cases(.))
-lp.covs <- lp.vars %>% select(quartile_1, quartile_2, quartile_3, quartile_4)
+  select(beds, penalty, price, quartile_1, quartile_2, quartile_3, quartile_4) 
+lp.covs <- lp.vars %>% select(quartile_1, quartile_2, quartile_3, quartile_4) 
 
 m.nn.var <- Matching::Match(Y=lp.vars$price,
                             Tr=lp.vars$penalty,
@@ -167,6 +167,11 @@ m.nn.md <- Matching::Match(Y=lp.vars$price,
 mahalanobis <- summary(m.nn.md)
 
 #IPW
+#calculate ps
+logit.model <- glm(penalty ~ quartile_1 + quartile_2 + 
+                  quartile_3 + quartile_4, family=binomial, data=lp.vars)
+ps <- fitted(logit.model)
+
 lp.vars <- lp.vars %>%
   mutate(ipw = case_when(
     penalty==1 ~ 1/ps,
@@ -182,10 +187,13 @@ m.nn.ps <- mean.t1$mean_p - mean.t0$mean_p
 
 
 #linear regression
-reg.dat <- lp.vars %>% ungroup() %>% filter(complete.cases(.)) %>%
-  mutate(beds_diff = penalty*(beds - mean(beds))) #where'd this come from
-reg <- lm(price ~ penalty + beds + quartile_1 + quartile_2 + quartile_3 + quartile_4 + 
-            beds_diff,
+reg.dat <- lp.vars %>% ungroup() %>%
+  mutate(beds_diff1 = penalty*(quartile_1 - mean(quartile_1))) %>%
+  mutate(beds_diff2 = penalty*(quartile_2 - mean(quartile_2))) %>%
+  mutate(beds_diff3 = penalty*(quartile_3 - mean(quartile_3))) %>%
+  mutate(beds_diff4 = penalty*(quartile_4 - mean(quartile_4))) 
+reg <- lm(price ~ penalty + quartile_1 + quartile_2 + quartile_3 + quartile_4 + 
+            beds_diff1 + beds_diff2 + beds_diff3 + beds_diff4, 
           data=reg.dat)
 linear_reg <- summary(reg)
 
