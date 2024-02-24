@@ -100,7 +100,6 @@ knitr::kable(average_price_by_quartile,format.args=list(big.mark=","), booktabs 
 
 \newpage
 # Question 7 
-Estimate for nearest neighbor (variance)
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 #| echo: false
 #| label: tbl-estimates
@@ -114,12 +113,12 @@ knitr::kable(estimand_table,format.args=list(big.mark=","), booktabs = TRUE) %>%
 
 \newpage
 # Question 8
-The treatment effects are identical.  
+The treatment effects are identical for the 4 estimators.  
 
 \newpage
 # Question 9 
-I don't think this is a causal effect of the penalty because it is estimated based on beds only and other variables are not controlled for. Matching with beds doesn't make penalized hospitals sufficiently similar to non-penalized ones. 
+I don't think this is a causal effect of the penalty because it is estimated based on beds only and other variables are not controlled for. Matching with beds doesn't make penalized hospitals sufficiently similar to non-penalized ones in my opinion. Other things like location of the hospital, type of hospital (for-profit/non-profit), size, etc. should be controlled for. 
 
 \newpage
 # Question 10
-Learning new packages to install for matching (update: this package is the one that messes with the select function). Running the R-code for some reason doesn't diplay the graphs until I preview the qmd.
+Learning new packages to install for matching (update: this package is the one that messes with the select function). Running the R-code for some reason doesn't diplay the graphs until I preview the qmd. I learned how to make this work by calling specific parts of the result.
