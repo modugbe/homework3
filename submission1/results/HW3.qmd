@@ -1,0 +1,115 @@
+---
+title: "Homework3 Submission1"
+author: "Moyo Odugbemi"
+subtitle: "https://github.com/modugbe/homework3"
+format: 
+   pdf: 
+     df-print: default
+     output-file: "odugbemi-m-hwk3-1"
+     output-ext: "pdf"
+     header-includes:
+        - \usepackage{float}
+        - \floatplacement{table}{H}
+---
+
+
+```{r results="hide", echo=FALSE, message=FALSE}
+#| include: false
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, fixest,
+               scales, gganimate, gapminder, gifski, png, tufte, plotly, OECD,
+               ggrepel, survey, foreign, devtools, pdftools, kableExtra, modelsummary,
+               kableExtra)
+```
+
+
+
+```{r results="hide", echo=FALSE, message=FALSE}
+#| include: false
+#| eval: true
+ 
+load("/Users/moyosoreoluwaodugbemi/Econ 470/Homework3/submission1/results/Hw3_workspace.Rdata")
+```
+
+
+\newpage
+#Question 1
+```{r results="hide", echo=FALSE, message=FALSE}
+stateproportion
+```
+
+\newpage
+#Question 2
+```{r results="asis", echo=FALSE, message=FALSE}
+averagetaxprice
+```
+
+\newpage
+#Question 3
+
+```{r results="hide", echo=FALSE, message=FALSE}
+high5
+```
+
+\newpage
+#Question 4
+
+```{r results="hide", echo=FALSE, message=FALSE}
+low5
+```
+
+\newpage
+#Question 5
+Both groups of states have similar sales on average that decrease as years or as the taxes increase. This somewhat uniform trend between the groups can be explained by the type of good cigarette is. 
+
+\newpage
+#Question 6
+See @tbl-est-results
+```{r results="asis", echo=FALSE, message=FALSE}
+model
+```
+
+
+
+\newpage
+#Question 7 <br>
+See @tbl-est-results
+```{r results="hide", echo=FALSE, message=FALSE}
+summary(ivs)
+```
+
+
+\newpage
+#Question 8 <br>
+See @tbl-est-results
+```{r results="hide", echo=FALSE, message=FALSE}
+summary(step1)
+summary(step2)
+```
+
+
+\newpage
+#Question 9 <br>
+See @tbl-est-results
+```{r results="hide", echo=FALSE, message=FALSE}
+model2
+summary(ivs2)
+summary(step12)
+summary(step22)
+```
+
+\newpage
+#Question 10
+```{r results="asis", echo=FALSE, message=FALSE, warning=FALSE}
+#| echo: false
+#| label: tbl-est-results
+#| tbl-cap: "Estimation results"
+#| 
+options(knitr.kable.NA = 0)
+
+knitr::kable(all_results, format.args = list(big.mark = ","), booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down"))
+
+```
+While the naive regression estimates are the same, the IV estimates are different. The estimates have the same signs that can tell us about elasticity.
