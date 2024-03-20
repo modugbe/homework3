@@ -29,7 +29,7 @@ pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, 
 #| include: false
 #| eval: true
  
-load("/Users/moyosoreoluwaodugbemi/Econ 470/Homework3/submission1/results/Hw3_workspace.Rdata")
+load("/Users/moyosoreoluwaodugbemi/Econ 470/Homework3/submission2/results/Hw3_workspace.Rdata")
 ```
 
 
@@ -66,9 +66,7 @@ Both groups of states have similar sales on average that decrease as years or as
 \newpage
 #Question 6
 See @tbl-est-results
-```{r results="asis", echo=FALSE, message=FALSE}
-model
-```
+
 
 
 
@@ -112,4 +110,5 @@ knitr::kable(all_results, format.args = list(big.mark = ","), booktabs = TRUE) %
   kable_styling(latex_options = c("scale_down"))
 
 ```
-While the naive regression estimates are the same, the IV estimates are different. The estimates have the same signs that can tell us about elasticity.
+
+They are different probably because of people realizing that cigarrettes are harmfu causing a shift in elasticity. Perhaps cigarettes became more elastic once people started to understand the harms behind it.

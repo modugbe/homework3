@@ -56,8 +56,11 @@ cpi.data <- cpi.data %>%
 # adjust to 2012 dollars
 final.data <- final.data %>%
   left_join(cpi.data, by="Year") %>%
-  mutate(cpi_2012 = index/index[Year == 2012])%>%
-  mutate(price_cpi=cost_per_pack/cpi_2012)
+  mutate(cpi_2012 = index/index[Year == 2012])%>% #we don't calculate the average index?
+  mutate(price_cpi=cost_per_pack/cpi_2012) %>%
+  mutate(tax_dollar_cpi=tax_dollar/cpi_2012) %>%
+  mutate(tax_revenue_cpi=tax_revenue/cpi_2012) %>%
+  mutate(tax_state_cpi=tax_state/cpi_2012)
 
 write_tsv(final.data,"data/output/TaxBurden_Data.txt",append=FALSE,col_names=TRUE)
 write_rds(final.data,"data/output/TaxBurden_Data.rds")

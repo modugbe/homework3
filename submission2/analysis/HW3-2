@@ -4,20 +4,24 @@ pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table
 
 final.data <- read_rds("data/output/TaxBurden_Data.rds")
 
+#Resolve CPI
+
+
+
 ## Summarize the data
 #1. Present a bar graph showing the proportion of states with a change in their cigarette tax in each year from 1970 to 1985.
-# Step 1: Count states with tax change for each year
+# Count states with tax change for each year
 state_tax_change_count <- final.data %>%
   filter(Year >= 1970 & Year <= 1985) %>%
   group_by(Year) %>%
   summarise(states_changed = sum(tax_state != lag(tax_state), na.rm = TRUE))
 
-# Step 2: Calculate proportion of states with tax change
+# Calculate proportion of states with tax change
 total_states <- n_distinct(final.data$state)  # Total number of states
 state_tax_change_count <- state_tax_change_count %>%
   mutate(proportion_change = states_changed / total_states)
 
-# Step 3: Create bar graph
+# Create bar graph
 stateproportion <- ggplot(state_tax_change_count, aes(x = as.factor(Year), y = proportion_change)) +
   geom_bar(stat = "identity", fill = "skyblue") +
   labs(x = "Year", y = "Proportion of States with Tax Change", title = "Proportion of States with Cigarette Tax Change (1970-1985)") +
@@ -25,27 +29,20 @@ stateproportion <- ggplot(state_tax_change_count, aes(x = as.factor(Year), y = p
 
 
 #2 Plot on a single graph the average tax (in 2012 dollars) on cigarettes and the average price of a pack of cigarettes from 1970 to 2018.
-# Step 1: Calculate average tax (convert to 2012 dollars) and average price by year
+# Calculate average tax (convert to 2012 dollars) and average price by year
 average_tax <- final.data %>%
   group_by(Year) %>%
-  summarize(average_tax = mean(tax_dollar, na.rm = TRUE))
-
-average_tax <- average_tax %>%
-  left_join(cpi.data, by = "Year") %>%
-  mutate(cpi_2012 = index / index[Year == 2012]) #redundant
-
-average_tax <- average_tax %>%
-  mutate(tax_2012 = average_tax * cpi_2012)
+  summarize(average_tax = mean(tax_dollar_cpi, na.rm = TRUE))
 
 average_price <- final.data %>%
   group_by(Year) %>%
-  summarize(average_price = mean(price_cpi, na.rm = TRUE)) #do you also want 2012 dollars here
+  summarize(average_price = mean(price_cpi, na.rm = TRUE)) 
 
 average_tax_price <- merge(average_tax, average_price, by = "Year")
 
-# Step 3: Create the plot
+# Create the plot
 averagetaxprice <- ggplot(average_tax_price, aes(x = Year)) +
-  geom_line(aes(y = tax_2012, color = "Average Tax"), size = 1.2) +
+  geom_line(aes(y = average_tax, color = "Average Tax"), size = 1.2) +
   geom_line(aes(y = average_price, color = "Average Price"), linetype = "dashed", size = 1.2) +
   scale_color_manual(values = c("Average Tax" = "blue", "Average Price" = "red")) +
   labs(x = "Year", y = "Amount (2012 dollars)", title = "Average Tax and Price of Cigarettes (1970-2018)") +
@@ -54,23 +51,23 @@ averagetaxprice <- ggplot(average_tax_price, aes(x = Year)) +
 
 
 #3 Identify the 5 states with the highest increases in cigarette prices (in dollars) over the time period. Plot the average number of packs sold per capita for those states from 1970 to 2018.
-# Step 1: Calculate the increase in cigarette prices for each state over the time period
+# Calculate the increase in cigarette prices for each state over the time period
 price_increase <- final.data %>%
   group_by(state) %>%
   summarize(price_increase = last(price_cpi) - first(price_cpi))
 
-# Step 2: Identify the 5 states with the highest increases
+# Identify the 5 states with the highest increases
 top_5_states <- price_increase %>%
   arrange(desc(price_increase)) %>%
   slice(1:5) %>%
   pull(state)
 
-# Step 3: Filter the data for these 5 states
-filtered_data <- final.data %>%
+# Filter the data for these 5 states
+filtered_data_high <- final.data %>%
   filter(state %in% top_5_states)
 
-# Step 4: Plot the average number of packs sold per capita for these states (1970 to 2018)
-high5 <- ggplot(filtered_data, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
+# Plot the average number of packs sold per capita for these states (1970 to 2018)
+high5 <- ggplot(filtered_data_high, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
   geom_line(size = 1) +
   labs(x = "Year", y = "Average Packs Sold per Capita", 
        title = "Average Packs Sold per Capita for States with Highest Cigarette Price Increases (1970-2018)",
@@ -81,22 +78,17 @@ high5 <- ggplot(filtered_data, aes(x = Year, y = sales_per_capita, group = state
 
 
 #4. Identify the 5 states with the lowest increases in cigarette prices over the time period. Plot the average number of packs sold per capita for those states from 1970 to 2018.
-# Step 1: Calculate the change in cigarette prices for each state
-price_change <- final.data %>%
-  group_by(state) %>%
-  summarize(price_change = max(price_cpi) - min(price_cpi)) %>%
-  arrange(price_change)  # Arrange states by the smallest price change
+# Select the 5 states with the smallest price increases
+lowest_price_increase_states <- price_increase %>%
+  head(5)%>%
+ pull(state)  # Select the first 5 rows (states with the smallest price increases)
 
-# Step 2: Select the 5 states with the smallest price increases
-lowest_price_change_states <- price_change %>%
-  head(5)  # Select the first 5 rows (states with the smallest price increases)
+# Filter the data for the selected states
+filtered_data_low <- final.data %>%
+  filter(state %in% lowest_price_increase_states)
 
-# Step 3: Filter the data for the selected states
-filtered_data <- final.data %>%
-  filter(state %in% lowest_price_change_states$state)
-
-# Step 4: Plot the average number of packs sold per capita for these states (1970 to 2018)
-low5 <- ggplot(filtered_data, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
+# Plot the average number of packs sold per capita for these states (1970 to 2018)
+low5 <- ggplot(filtered_data_low, aes(x = Year, y = sales_per_capita, group = state, color = state)) +
   geom_line(size = 1) +
   labs(x = "Year", y = "Average Packs Sold per Capita", 
        title = "Average Packs Sold per Capita for States with Lowest Cigarette Price Increases (1970-2018)",
@@ -124,12 +116,12 @@ price_elasticity <- coef(model)[2]
 
 
 #7. Again limiting to 1970 to 1990, regress log sales on log prices using the total (federal and state) cigarette tax (in dollars) as an instrument for log prices. Interpret your results and compare your estimates to those without an instrument. Are they different? If so, why?
-ivs <- feols(log(sales_per_capita) ~ 1 | log(price_cpi) ~ log(tax_dollar), 
+ivs <- feols(log(sales_per_capita) ~ 1 | log(price_cpi) ~ log(tax_dollar_cpi), 
              data=subset_data)
 summary(ivs)
 
 #8. Show the first stage and reduced-form results from the instrument.
-step1 <- lm(log(price_cpi) ~ log(tax_dollar), data=subset_data)
+step1 <- lm(log(price_cpi) ~ log(tax_dollar_cpi), data=subset_data)
 pricehat <- predict(step1)
 step2 <- lm(log(sales_per_capita) ~ pricehat, data=subset_data)
 summary(step1)
@@ -142,19 +134,19 @@ subset_data2 <- final.data %>%
   filter(Year >= 1991 & Year <= 2015)
 
 # Perform the regression analysis
-model2 <- lm(log(sales_per_capita) ~ log(price_cpi), data = subset_data)
+model2 <- lm(log(sales_per_capita) ~ log(price_cpi), data = subset_data2)
 
 # Extract the coefficient of the log price variable
-price_elasticity2 <- coef(model)[2]
+price_elasticity2 <- coef(model2)[2]
 
 
 # Again limiting to 1970 to 1990, regress log sales on log prices using the total (federal and state) cigarette tax (in dollars) as an instrument for log prices. Interpret your results and compare your estimates to those without an instrument. Are they different? If so, why?
-ivs2 <- feols(log(sales_per_capita) ~ 1 | log(price_cpi) ~ log(tax_dollar), 
+ivs2 <- feols(log(sales_per_capita) ~ 1 | log(price_cpi) ~ log(tax_dollar_cpi), 
              data=subset_data2)
 summary(ivs2)
 
 # Show the first stage and reduced-form results from the instrument.
-step12 <- lm(log(price_cpi) ~ log(tax_dollar), data=subset_data2)
+step12 <- lm(log(price_cpi) ~ log(tax_dollar_cpi), data=subset_data2)
 pricehat2 <- predict(step12)
 step22 <- lm(log(sales_per_capita) ~ pricehat2, data=subset_data2)
 summary(step12)
@@ -184,4 +176,4 @@ all_results <- rbind(results1, results2)
 # Print the results table
 print(all_results)
 
-save.image("submission1/results/Hw3_workspace.Rdata")
+save.image("submission2/results/Hw3_workspace.Rdata")
