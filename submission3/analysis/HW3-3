@@ -92,7 +92,30 @@ low5 <- ggplot(filtered_data_low, aes(x = Year, y = sales_per_capita, group = st
 
 
 #5. Compare the trends in sales from the 5 states with the highest price increases to those with the lowest price increases.
-#----
+# Calculate the average sales per capita for the high and low groups
+average_sales_high <- filtered_data_high %>%
+  group_by(Year) %>%
+  summarize(average_sales_per_capita = mean(sales_per_capita))
+
+average_sales_low <- filtered_data_low %>%
+  group_by(Year) %>%
+  summarize(average_sales_per_capita = mean(sales_per_capita))
+
+# Plot the average sales per capita for the high and low groups
+comparison_plot <- ggplot() +
+  geom_line(data = average_sales_high, aes(x = Year, y = average_sales_per_capita, color = "High Price Increase"), size = 1) +
+  geom_line(data = average_sales_low, aes(x = Year, y = average_sales_per_capita, color = "Low Price Increase"), size = 1) +
+  labs(x = "Year", y = "Average Packs Sold per Capita", 
+       title = "Comparison of Average Packs Sold per Capita for States with High and Low Cigarette Price Increases (1970-2018)",
+       color = "Group") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(1970, 2018, by = 5)) +  # Limit x-axis to years from 1970 to 2018
+  scale_color_manual(values = c("red", "blue"), labels = c("High Price Increase", "Low Price Increase"))  # Set colors and labels for the groups
+
+comparison_plot
+
+
+
 
 ## Estimate ATEs
 # Now let’s work on estimating a demand curve for cigarettes. Specifically, we’re going to estimate the price elasticity of demand for cigarettes. When explaining your findings, try to limit your discussion just to a couple of sentences.

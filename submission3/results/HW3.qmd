@@ -61,12 +61,17 @@ low5
 
 \newpage
 #Question 5
-Both groups of states have similar sales on average that decrease as years or as the taxes increase. This somewhat uniform trend between the groups can be explained by the type of good cigarette is. 
+```{r results="hide", echo=FALSE, message=FALSE}
+comparison_plot
+```
+
+Both groups of states have similar sales on average that decrease as years or as the taxes increase. This somewhat uniform trend between the groups can be explained by the laws of demand. We expect demand to decrease as price increases.  
 
 \newpage
-#Question 6
-See @tbl-est-results
-
+#Question 6 <br>
+See @tbl-est-results 
+<br>
+The price elasticity of demand is estimated to be approximately -0.8. For every 1% increase in prices of cigarettes, there is a 0.8% decrease in the quantity of cigarettes demanded. 
 
 
 
@@ -76,7 +81,10 @@ See @tbl-est-results
 ```{r results="hide", echo=FALSE, message=FALSE}
 summary(ivs)
 ```
-
+<br>
+The price elasticity of demand is estimated to be approximately -0.8. For every 1% increase in prices of cigarettes, there is a 0.8% decrease in the quantity of cigarettes demanded. 
+<br>
+This estimate is not very different than the one with no instruments. But the R2 for the first stage is also very low which may indicate that the IV is not strongly correlated with the endogenous variable.
 
 \newpage
 #Question 8 <br>
@@ -111,4 +119,4 @@ knitr::kable(all_results, format.args = list(big.mark = ","), booktabs = TRUE) %
 
 ```
 
-They are different probably because of people realizing that cigarrettes are harmfu causing a shift in elasticity. Perhaps cigarettes became more elastic once people started to understand the harms behind it.
+They are different. Cigarettes becomes a more elastic good where a 1% increase in price results in a higher % decrease in quantity demanded. This may be caused by shifting attitudes about the negative effects of cigarettes and the availabilities of alternatives like e-cigarettes. However, we can't say for sure because these are still relatively consistent. 
